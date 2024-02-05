@@ -1,0 +1,7 @@
+Loading net-file from './nets/bo/joined_buslanes.net.xml' ... done (42ms).
+Loading additional-files from './nets/bo/joined_bus_stops.add.xml' ... done (1ms).
+Loading additional-files from './nets/bo/joined_detectors.add.xml' ... done (1ms).
+Loading additional-files from './nets/bo/joined_vtypes.add.xml' ... done (2ms).
+Loading additional-files from './nets/bo/joined_tls.add.xml' ... done (1ms).
+Loading done.
+Simulation version 1.18.0 started via libsumo with time: 0.00.
