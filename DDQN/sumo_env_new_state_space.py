@@ -37,8 +37,8 @@ class SumoEnvironment(gym.Env):
         self.max_steps = max_steps
         self._cfg = cfg_file
         self.start = False
-        self.use_gui = use_gui
-        # self.use_gui = True
+        # self.use_gui = use_gui
+        self.use_gui = True
         self.sumo_seed = "random"
         self.label = 0
         self.delta_time = 10
@@ -81,7 +81,7 @@ class SumoEnvironment(gym.Env):
 
 
 
-    def reset(self, *,seed=None, options=None):
+    def reset(self, callback, seed):
         self._step = 0
         self.episode += 1
         if self.start:
@@ -89,6 +89,8 @@ class SumoEnvironment(gym.Env):
         else :
             self.start = True
         
+        callback(seed)
+
         self._start_simulation()
         self.init_agents_info()
         
@@ -194,7 +196,7 @@ class SumoEnvironment(gym.Env):
         # total_wait = sum(wait_times.values())
 
 
-        t_rewards = [-(r["halted_vehicles"] + 0.2*r["wait_times"]) for tid,r in rewards.items()]
+        t_rewards = [(r["halted_vehicles"] + 0.2*r["wait_times"]) for tid,r in rewards.items()]
         
         return t_rewards
 
@@ -247,7 +249,7 @@ class TrafficSignal:
 
     def Validate(self):
         for p in self.phases :
-            print(len(p), len(self.lanes),len(self.incoming_lanes))
+            # print(len(p), len(self.lanes),len(self.incoming_lanes))
             assert len(p) == len(self.lanes)
         
 

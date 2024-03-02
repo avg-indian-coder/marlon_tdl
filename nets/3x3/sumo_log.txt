@@ -1,0 +1,18 @@
+***Starting server on port 57472 ***
+Loading net-file from './nets/3x3/3x3.net.xml' ... done (25ms).
+Loading done.
+Simulation started with time: 0.00.
+Error: tcpip::Socket::recvAndCheck @ recv: Socket reset by peer
+Quitting (on error).
+Simulation ended at time: 2670.00
+Performance: 
+ Duration: 47.75s
+ TraCI-Duration: 36.22s
+ Real time factor: 55.9139
+ UPS: 11383.397554
+Vehicles: 
+ Inserted: 997 (Loaded: 1000)
+ Running: 80
+ Waiting: 0
+ Teleports: 3 (Yield: 3)
+

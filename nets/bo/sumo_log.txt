@@ -1,7 +1,19 @@
-Loading net-file from './nets/bo/joined_buslanes.net.xml' ... done (42ms).
-Loading additional-files from './nets/bo/joined_bus_stops.add.xml' ... done (1ms).
-Loading additional-files from './nets/bo/joined_detectors.add.xml' ... done (1ms).
+***Starting server on port 57123 ***
+Loading net-file from './nets/bo/joined_buslanes.net.xml' ... done (112ms).
+Loading additional-files from './nets/bo/joined_bus_stops.add.xml' ... done (2ms).
+Loading additional-files from './nets/bo/joined_detectors.add.xml' ... done (4ms).
 Loading additional-files from './nets/bo/joined_vtypes.add.xml' ... done (2ms).
-Loading additional-files from './nets/bo/joined_tls.add.xml' ... done (1ms).
+Loading additional-files from './nets/bo/joined_tls.add.xml' ... done (3ms).
 Loading done.
-Simulation version 1.18.0 started via libsumo with time: 0.00.
+Simulation started with time: 0.00.
+Simulation ended at time: 341.00
+Performance: 
+ Duration: 4.46s
+ TraCI-Duration: 3.83s
+ Real time factor: 76.526
+ UPS: 3314.631957
+Vehicles: 
+ Inserted: 169 (Loaded: 262)
+ Running: 131
+ Waiting: 0
+
