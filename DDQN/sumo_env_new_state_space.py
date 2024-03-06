@@ -14,7 +14,7 @@ from typing import List
 if 'SUMO_HOME' in os.environ:
     tools = os.path.join(os.environ['SUMO_HOME'], 'tools')
     sys.path.append(tools)
-else:   
+else:
     sys.exit("please declare environment variable 'SUMO_HOME'")
 
 
@@ -58,6 +58,8 @@ class SumoEnvironment(gym.Env):
             programs : List[Logic]   = self.sumo.trafficlight.getAllProgramLogics(id)
             program_names = [p.programID for p in programs]
 
+            # print(currentProgram, programs, program_names)
+
             index = program_names.index(currentProgram)
 
             phases = programs[index].getPhases()
@@ -74,12 +76,6 @@ class SumoEnvironment(gym.Env):
             self.info[id] = {"Phases" : phase_encodings, "Incoming Lanes" :lanes, "State Space" : total_phases *2, "Action Space" : total_phases  }
 
         self.trafficLights = {ts: TrafficSignal(ts, self.sumo.trafficlight, self.sumo, self.info[ts]["Phases"] ) for ts in self.agentIDs}
-        
-
-
-
-
-
 
     def reset(self, callback, seed):
         self._step = 0
@@ -179,12 +175,12 @@ class SumoEnvironment(gym.Env):
     def get_state(self):
         state = []
         for tid in self.agentIDs:
-            state.append(self.trafficLights[tid].getNewState())
+            state.append(self.trafficLights[tid].getState())
         return state
 
     def measure_reward(self):
         rewards = {}
-        for ts in self.agentIDs :
+        for ts in self.agentIDs:
             rewards[ts] = {
                 "halted_vehicles" : self.trafficLights[ts].getHaltedCars(),
                 "wait_times" : self.trafficLights[ts].totalMaxWaitingTime()
@@ -248,7 +244,7 @@ class TrafficSignal:
 
 
     def Validate(self):
-        for p in self.phases :
+        for p in self.phases:
             # print(len(p), len(self.lanes),len(self.incoming_lanes))
             assert len(p) == len(self.lanes)
         
@@ -265,12 +261,22 @@ class TrafficSignal:
             num_cars += self.sumo.lane.getLastStepHaltingNumber(lane)
         
         return num_cars
+    
+    def getState(self):
+        lanes = self.incoming_lanes
+        state = []
+
+        for i in range(len(lanes)):
+            vehicle_count = self.sumo.lane.getLastStepVehicleNumber(lanes[i])
+            state.append(vehicle_count)
+
+        return state
 
 
     def getNewState(self):
 
         phases : List[str] = self.phases
-        lanes = self.lanes
+        lanes = self.incoming_lanes
         state = []
         laneVehicles = []
         waitingTimes = []
@@ -280,7 +286,7 @@ class TrafficSignal:
         times_array = []
 
         for i in range(len(lanes)) :
-            if i!= 0 and  lanes[i] == lanes[i - 1]:
+            if i!= 0 and lanes[i] == lanes[i - 1]:
                 vehicles_array.append(vehicles_array[i - 1])
                 times_array.append(times_array[i - 1])
 
@@ -343,11 +349,21 @@ class TrafficSignal:
 
         self.tl.setRedYellowGreenState(self.id,immediate_phase)
 
+    def getTotalCarsInLanes(self):
+        # Returns all the cars in each lane of each intersection
+        # _, incoming_lanes = self.getIncomingLanes()
+        total_cars_around_intersection = 0
+
+        for lane in self.incoming_lanes:
+            no_cars_in_lane = len(self.sumo.lane.getLastStepVehicleIDs(lane))
+            total_cars_around_intersection += no_cars_in_lane
+
+        return total_cars_around_intersection
 
     def totalMaxWaitingTime(self):
         # Returns sum of max wait time of each lane
         total_mwt = 0
-        for lane in self.incoming_lanes :
+        for lane in self.incoming_lanes:
             car_wait = 0
             max_pos = 0
             cur_cars = self.sumo.lane.getLastStepVehicleIDs(lane)

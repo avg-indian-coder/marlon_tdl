@@ -3,6 +3,7 @@ import math
 import os
 import platform
 import random
+import subprocess
 
 def generator(net, route, end_time, no_vehicles, p):
     '''
@@ -12,7 +13,9 @@ def generator(net, route, end_time, no_vehicles, p):
         cmd_code = f'python "%SUMO_HOME%/tools/randomTrips.py" --validate -r {route} --end {no_vehicles} -n {net}'
     else:
         cmd_code = f'SUMO_HOME/tools/randomTrips.py --validate -r {route} --end {no_vehicles} -n {net}'
-    os.system(cmd_code)
+    # os.system(cmd_code)
+    with open(os.devnull, 'wb') as devnull:
+        subprocess.check_call([cmd_code], stdout=devnull, stderr=subprocess.STDOUT)
 
     f = open(route, "r+")
     l = f.readlines()
@@ -71,7 +74,11 @@ class TrafficGen:
             cmd_code = f'python3 "%SUMO_HOME%/tools/randomTrips.py" --validate -r {self._route} --end {self._no_vehicles} -n {self._net}'
         else:
             cmd_code = f'SUMO_HOME/tools/randomTrips.py --validate -r {self._route} --end {self._no_vehicles} -n {self._net}'
-        os.system(cmd_code)
+        # os.system(cmd_code)
+        # with open(os.devnull, 'wb') as devnull:
+        #     subprocess.run([cmd_code], shell=True, stdout=devnull, stderr=subprocess.STDOUT)
+        # print("Gay")
+        subprocess.check_output(cmd_code, shell=True, stderr=subprocess.STDOUT)
 
         f = open(self._route, "r+")
         l = f.readlines()
