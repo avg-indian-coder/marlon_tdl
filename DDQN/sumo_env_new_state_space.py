@@ -200,6 +200,9 @@ class SumoEnvironment(gym.Env):
         for i in range(len(self.agentIDs)):
                 self.trafficLights[self.agentIDs[i]].setPhase(actions[i],phase)
 
+    # def getTotalWaitingTime(self):
+
+
     def logging(self,actions, prev_state,new_state,rewards):
         tIDs = self.agentIDs
         GreenPhases = [self.trafficLights[tIDs[0]].getPhaseInfo(actions[x]) for x in range(len(actions))]

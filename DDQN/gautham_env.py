@@ -19,7 +19,7 @@ else:
     sys.exit("please declare environment variable 'SUMO_HOME'")
 
 class SumoEnvironment(gym.Env):
-    def __init__(self, max_steps, cfg_file, use_gui):
+    def __init__(self, max_steps, neighbours, network, cfg_file, use_gui):
         self.max_steps = max_steps
         self._cfg = cfg_file
         self.use_gui = use_gui
@@ -32,10 +32,44 @@ class SumoEnvironment(gym.Env):
         self.label = 0
         self.delta_time = 20
         self.yellow_time = 2
+        self.run = 1
+        self.network = network
+        self.all_vehicles_acc_waiting_time = dict()
+        self.df = None
+        self.neighbours = neighbours
+
+    def updateAccumulatedWaitingTime(self):
+        vehicles = self.sumo.vehicle.getIDList()
+
+        for vehicle in vehicles:
+            self.all_vehicles_acc_waiting_time[vehicle] = self.sumo.vehicle.getAccumulatedWaitingTime(vehicle)
+
+    def getAvgAccumulatedWaitingTime(self):
+        return sum(self.all_vehicles_acc_waiting_time.values())/len(self.all_vehicles_acc_waiting_time)
+    
+    def getMaxAccumulatedWaitingTime(self):
+        return max(self.all_vehicles_acc_waiting_time.values())
+
+    def get_run(self):
+        while True:
+            if os.path.exists(f"./DDQN/runs/{self.network}/run_{self.run}"):
+                self.run += 1
+            else:
+                break
+        
+        if not os.path.exists(f"./DDQN/runs/{self.network}"):
+            os.mkdir(f"./DDQN/runs/{self.network}")
+        os.mkdir(f"./DDQN/runs/{self.network}/run_{self.run}")
+        # os.mkdir(f"./DDQN/runs/{self.network}/run_{self.run}/logs")
+        # with open(f"./DDQN/runs/{self.network}/run_{self.run}/logs.csv", "a") as f:
+        #     print("Episode,")
+
+        return self.run
 
     def reset(self, callback, seed):
         self._step = 0
         self.episode += 1
+        # self.df = pd.DataFrame(columns=["step","waiting_time"])
 
         if self.start:
             self.sumo.close()
@@ -86,6 +120,9 @@ class SumoEnvironment(gym.Env):
         if self.use_gui :
             sumo_cmd.extend(["--start", "--quit-on-end"])
 
+        # to get accumulated waiting time from simulation start
+        sumo_cmd.extend(["--waiting-time-memory", "10000"])
+
         self.label += random.randint(0,5000)
         traci.start(sumo_cmd, label=self.label)
 
@@ -96,11 +133,12 @@ class SumoEnvironment(gym.Env):
         for _ in range(n):
             self._step += 1
             self.sumo.simulationStep()
+            self.updateAccumulatedWaitingTime()
 
-    def get_state(self):
+    """ def get_state(self):
         state = []
         for tid in self.agentIDs:
-            state.append(self.trafficLights)
+            state.append(self.trafficLights) """
 
     def init_agents_info(self):
         self.agentIDs = list(self.sumo.trafficlight.getIDList())
@@ -136,7 +174,7 @@ class SumoEnvironment(gym.Env):
 
             self.action_spaces.append(Discrete(total_phases))
             # self.info[ids] = {"Phases" : phase_encodings, "Incoming Lanes" :lanes, "State Space" : total_phases *2, "Action Space" : total_phases  }
-            self.info[ids] = {"Phases" : phase_encodings, "Incoming Lanes" :lanes, "State Space" : len(set(lanes)), "Action Space" : total_phases  }
+            self.info[ids] = {"Phases" : phase_encodings, "Incoming Lanes" :lanes, "State Space" : len(self.get_state()), "Action Space" : total_phases  }
 
         self.trafficLights = {ts: TrafficSignal(ts, self.sumo.trafficlight, self.sumo, self.info[ts]["Phases"] ) for ts in self.agentIDs}
     
@@ -174,6 +212,57 @@ class SumoEnvironment(gym.Env):
 
         return observations, rewards, dones, truncateds
     
+    def getAvgWaitingTime(self):
+        # Waiting time of all vehicles at an instant
+        vehicles = self.sumo.vehicle.getIDList()
+        avg_waiting_time = 0
+
+        for vehicle in vehicles:
+            avg_waiting_time += self.sumo.vehicle.getAccumulatedWaitingTime(vehicle)
+        
+        return avg_waiting_time/len(vehicles)
+    
+    def getMaxWaitingTime(self):
+        # Maximum waiting time of all vehicles at an instant
+        vehicles = self.sumo.vehicle.getIDList()
+        max_waiting_time = 0
+
+        for vehicle in vehicles:
+            # avg_waiting_time += self.sumo.vehicle.getAccumulatedWaitingTime(vehicle)
+            acc_wait_time = self.sumo.vehicle.getAccumulatedWaitingTime(vehicle)
+            if acc_wait_time > max_waiting_time:
+                max_waiting_time = acc_wait_time
+        
+        return max_waiting_time
+    
+    def getMinWaitingTime(self):
+        # Maximum waiting time of all vehicles at an instant
+        vehicles = self.sumo.vehicle.getIDList()
+        min_waiting_time = 2**16
+
+        for vehicle in vehicles:
+            # avg_waiting_time += self.sumo.vehicle.getAccumulatedWaitingTime(vehicle)
+            acc_wait_time = self.sumo.vehicle.getAccumulatedWaitingTime(vehicle)
+            if acc_wait_time < min_waiting_time:
+                min_waiting_time = acc_wait_time
+        
+        return min_waiting_time
+
+    # def logging(self):
+    #     # save characteristics during an episode
+    #     data = []
+
+    #     with open(f"./DDQN/runs/{self.network}/run_{self.run}/logs.csv", "a") as f:
+    #         if self.
+    #         print(f"")
+
+
+        
+
+
+        
+
+    
 
 class TrafficSignal:
 
@@ -207,6 +296,9 @@ class TrafficSignal:
             num_cars += self.sumo.lane.getLastStepHaltingNumber(lane)
         
         return num_cars
+    
+    # def getNeighbouringLanes(self, neighbours):
+        # Find traffic lanes
     
     def getState(self):
         lanes = self.incoming_lanes

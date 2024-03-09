@@ -17,12 +17,17 @@ import logging
 from gymnasium.spaces import Discrete
 from torch.utils.tensorboard import SummaryWriter
 
+network = "bo"
 
 env = SumoEnvironment(use_gui=False, 
                       max_steps=3600,
-                    #   cfg_file="./nets/3x3/run.sumocfg")
-                      cfg_file="./nets/bo/run.sumocfg")
+                      network=network,
+                      neighbours=0,
+                      cfg_file=f"./nets/{network}/run.sumocfg")
 
+run = env.get_run()
+with open(f"./DDQN/runs/{network}/run_{run}/logs.csv", "w") as f:
+    print(f"episode,rewards,avg_acc_waiting_time,max_acc_waiting_time,epsilon", file=f)
 
 # set up matplotlib
 is_ipython = 'inline' in matplotlib.get_backend()
@@ -40,8 +45,8 @@ Transition = namedtuple('Transition',
 traffic_generator = TrafficGen(
     # "nets/3x3/3x3.net.xml",
     # "nets/3x3/generated_route.rou.xml",
-    "nets/bo/joined_buslanes.net.xml",
-    "nets/bo/generated_route.rou.xml",
+    f"nets/{network}/network.net.xml",
+    f"nets/{network}/generated_route.rou.xml",
     3600,
     1000,
     0.1)
@@ -64,6 +69,7 @@ class ReplayMemory(object):
 class DQN(nn.Module):
     def __init__(self, n_observations, n_actions):
         super(DQN, self).__init__()
+        # self.bn = nn.BatchNorm1d(num_features=n_observations, affine=False)
         self.layer1 = nn.Linear(n_observations, 10)
         self.layer2 = nn.Linear(10, 10)
         self.layer3 = nn.Linear(10, n_actions)
@@ -98,8 +104,8 @@ LR = 1e-4
 # Get number of actions from gym action space
 # print(state)
 
-run_name = "DQN_bo"
-writer = SummaryWriter(f"./DDQN/runs/{run_name}")
+# run_name = "DQN_bo"
+# writer = SummaryWriter(f"./DDQN/runs/{run_name}")
 # logging.basicConfig(filename=f'./DDQN/rewards/{run_name}', filemode='w',
 #                     format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -247,21 +253,21 @@ for i_episode in range(1, num_episodes + 1):
 
     # Saving of checkpoints
     if i_episode % 5 == 0:
-        exist1 = os.path.exists(f"./DDQN/models/DQNv5/policy_net_checkpoint_{c}")
+        exist1 = os.path.exists(f"./DDQN/runs/{network}/run_{run}/policy_net_checkpoint_{c}")
         if not exist1:
-            os.makedirs(f"./DDQN/models/DQNv5/policy_net_checkpoint_{c}")
+            os.makedirs(f"./DDQN/runs/{network}/run_{run}/policy_net_checkpoint_{c}")
 
-        exist2 = os.path.exists(f"./DDQN/models/DQNv5/target_net_checkpoint_{c}")
+        exist2 = os.path.exists(f"./DDQN/runs/{network}/run_{run}/target_net_checkpoint_{c}")
         if not exist2:
-            os.makedirs(f"./DDQN/models/DQNv5/target_net_checkpoint_{c}")
+            os.makedirs(f"./DDQN/runs/{network}/run_{run}/target_net_checkpoint_{c}")
 
         for id in env.agentIDs:
             policy_net = models[id]["policy_net"]
             target_net = models[id]["target_net"]
             torch.save(policy_net.state_dict(),
-                       f"./DDQN/models/DQNv5/policy_net_checkpoint_{c}/agent{id}")
+                       f"./DDQN/runs/{network}/run_{run}/policy_net_checkpoint_{c}/agent_{id}")
             torch.save(target_net.state_dict(),
-                       f"./DDQN/models/DQNv5/target_net_checkpoint_{c}/agent{id}")
+                       f"./DDQN/runs/{network}/run_{run}/target_net_checkpoint_{c}/agent_{id}")
         c += 1
 
     state = env.reset(traffic_generator.generate_routefile, i_episode)
@@ -341,28 +347,31 @@ for i_episode in range(1, num_episodes + 1):
     #         target_net_state_dict[key] = policy_net_state_dict[key] * \
     #             TAU + target_net_state_dict[key]*(1-TAU)
     #     models[id]['target_net'].load_state_dict(target_net_state_dict)
-    
-    if eps > min_eps:
-        eps = eps - (1/num_episodes)
 
     avg_eps_reward = eps_reward/t
-    writer.add_scalar("charts/avg_episodic_return", avg_eps_reward, i_episode)
+    # writer.add_scalar("charts/avg_episodic_return", avg_eps_reward, i_episode)
 
     # logging.info(
     #     f"Episode {i_episode} | Reward : {avg_eps_reward} | Guesses : {guesses} | Total timesteps : {t}")
-    print(f"Episode {i_episode} | Reward : {avg_eps_reward} | Guesses : {guesses} | Total timesteps : {t}")
+    print(f"Episode {i_episode} | Reward : {avg_eps_reward} | Acc. waiting time : {round(env.getAvgAccumulatedWaitingTime(), 3)} | Guesses : {guesses} | Epsilon : {eps} | Total timesteps : {t}")
 
-exist1 = os.path.exists(f"./DDQN/models/DQNv5/policy_net")
+    with open(f"./DDQN/runs/{network}/run_{run}/logs.csv", "a") as f:
+        print(f"{i_episode},{avg_eps_reward},{round(env.getAvgAccumulatedWaitingTime(), 3)},{round(env.getMaxAccumulatedWaitingTime(), 3)},{eps}", file=f)
+
+    if eps > min_eps:
+        eps = eps - (1/num_episodes)
+        # eps = eps*0.95
+
+exist1 = os.path.exists(f".DDQN/runs/{network}/run_{run}/policy_net")
 if not exist1:
-    os.makedirs(f"./DDQN/models/DQNv5/policy_net")
+    os.makedirs(f".DDQN/runs/{network}/run_{run}/policy_net")
 
-exist2 = os.path.exists(f"./DDQN/models/DQNv5/target_net")
+exist2 = os.path.exists(f"./runs/{network}/run_{run}/target_net")
 if not exist2:
-    os.makedirs(f"./DDQN/models/DQNv5/target_net")
-
+    os.makedirs(f"./runs/{network}/run_{run}/target_net")
 
 for id in env.agentIDs:
     policy_net = models[id]["policy_net"]
     target_net = models[id]["target_net"]
-    torch.save(policy_net.state_dict(), f"./models/DQNv5/policy_net/agent{id}")
-    torch.save(target_net.state_dict(), f"./models/DQNv5/target_net/agent{id}")
+    torch.save(policy_net.state_dict(), f"./DDQN/runs/{network}/run_{run}/policy_net/agent_{id}")
+    torch.save(target_net.state_dict(), f"./DDQN/runs/{network}/run_{run}/target_net/agent_{id}")
