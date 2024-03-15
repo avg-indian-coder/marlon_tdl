@@ -19,10 +19,14 @@ from torch.utils.tensorboard import SummaryWriter
 
 network = "bo"
 
+if network == "bo":
+    from adjacent_nodes import adjacent_nodes_bo
+
 env = SumoEnvironment(use_gui=False, 
                       max_steps=3600,
                       network=network,
-                      neighbours=0,
+                      neighbours=adjacent_nodes_bo,
+                      degree_of_multiagency=1,
                       cfg_file=f"./nets/{network}/run.sumocfg")
 
 run = env.get_run()
@@ -70,20 +74,22 @@ class DQN(nn.Module):
     def __init__(self, n_observations, n_actions):
         super(DQN, self).__init__()
         # self.bn = nn.BatchNorm1d(num_features=n_observations, affine=False)
-        self.layer1 = nn.Linear(n_observations, 10)
-        self.layer2 = nn.Linear(10, 10)
-        self.layer3 = nn.Linear(10, n_actions)
+        self.layer1 = nn.Linear(n_observations, n_observations*5)
+        self.layer2 = nn.Linear(n_observations*5, n_observations*5)
+        self.layer3 = nn.Linear(n_observations*5, n_observations*5)
+        self.layer4 = nn.Linear(n_observations*5, n_observations*3)
+        self.layer5 = nn.Linear(n_observations*3, n_observations*3)
+        self.layer6 = nn.Linear(n_observations*3, n_actions)
 
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
     def forward(self, x):
-        # print("Cringe brou")
         x = F.relu(self.layer1(x))
-        # print(x, x.size())
-        # x = self.layer1(x)
         x = F.relu(self.layer2(x))
-        # print(x, x.size())
-        return self.layer3(x)
+        x = F.relu(self.layer3(x))
+        x = F.relu(self.layer4(x))
+        x = F.relu(self.layer5(x))
+        return self.layer6(x)
 
 
 # BATCH_SIZE is the number of transitions sampled from the replay buffer

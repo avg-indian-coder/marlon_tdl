@@ -19,7 +19,7 @@ else:
     sys.exit("please declare environment variable 'SUMO_HOME'")
 
 class SumoEnvironment(gym.Env):
-    def __init__(self, max_steps, neighbours, network, cfg_file, use_gui):
+    def __init__(self, max_steps, neighbours, degree_of_multiagency, network, cfg_file, use_gui):
         self.max_steps = max_steps
         self._cfg = cfg_file
         self.use_gui = use_gui
@@ -37,6 +37,10 @@ class SumoEnvironment(gym.Env):
         self.all_vehicles_acc_waiting_time = dict()
         self.df = None
         self.neighbours = neighbours
+        self.neighbouring_nodes = dict()
+        self.net = sumolib.net.readNet(f"./nets/{self.network}/network.net.xml")
+        self.degree = degree_of_multiagency
+        # self.net.getNode()
 
     def updateAccumulatedWaitingTime(self):
         vehicles = self.sumo.vehicle.getIDList()
@@ -67,11 +71,13 @@ class SumoEnvironment(gym.Env):
         return self.run
 
     def reset(self, callback, seed):
+        # sumolib.net.TLS.getConnections()
         self._step = 0
         self.episode += 1
         # self.df = pd.DataFrame(columns=["step","waiting_time"])
 
         if self.start:
+            # self.get_adjacent_nodes(1)
             self.sumo.close()
         else:
             self.start = True
@@ -142,6 +148,11 @@ class SumoEnvironment(gym.Env):
 
     def init_agents_info(self):
         self.agentIDs = list(self.sumo.trafficlight.getIDList())
+        # for ids in self.agentIDs:
+        # print("a0", sorted([n.getID() for n in self.net.getNode("a0").getNeighboringNodes()]))
+        # sample_tls = sumolib.net.TLS(self.agentIDs[0])
+        # print("connections")
+        # print(sample_tls.getConnections())
         self.agents_n = len(self.agentIDs)
         self.info = {}
         self.action_spaces = []
@@ -174,10 +185,51 @@ class SumoEnvironment(gym.Env):
 
             self.action_spaces.append(Discrete(total_phases))
             # self.info[ids] = {"Phases" : phase_encodings, "Incoming Lanes" :lanes, "State Space" : total_phases *2, "Action Space" : total_phases  }
-            self.info[ids] = {"Phases" : phase_encodings, "Incoming Lanes" :lanes, "State Space" : len(self.get_state()), "Action Space" : total_phases  }
+            # self.info[ids] = {"Phases" : phase_encodings, "Incoming Lanes" :lanes, "State Space" : len(set(lanes)), "Action Space" : total_phases  }
+            self.info[ids] = {"Phases" : phase_encodings, "Incoming Lanes" :lanes, "Action Space" : total_phases  }
 
-        self.trafficLights = {ts: TrafficSignal(ts, self.sumo.trafficlight, self.sumo, self.info[ts]["Phases"] ) for ts in self.agentIDs}
-    
+        self.trafficLights = {ts: TrafficSignal(ts, self.sumo.trafficlight, self.sumo, self.info[ts]["Phases"], self.neighbours[ts], self.degree ) for ts in self.agentIDs}
+        for ids in self.agentIDs:
+            # self.info[ids]["State Space"] =  len(self.get_state())
+            self.info[ids]["State Space"] = len(self.trafficLights[ids].getState())
+        
+
+    def get_adjacent_nodes(self):
+        self.edge_to_node = dict()
+        lanes = dict()
+        # for ids in self.agentIDs:
+            # lanes[ids] = sorted(list(set(self.sumo.trafficlight.getControlledLinks(ids))))
+            # lanes[ids] = self.sumo.trafficlight.getControlledLinks(ids)
+
+        # for light in self.net.getTrafficLights():
+            # print(light.getID(),light.getConnections())
+        # print(len(self.net.getTrafficLights()))
+        # print(len(self.net.getNodes()))
+        # print(lanes)
+
+        for ids, conn_lanes in lanes.items():
+            for lane in conn_lanes:
+                if lane not in self.edge_to_node:
+                    self.edge_to_node[lane] = [ids, ]
+                else:
+                    self.edge_to_node[lane].append(ids)
+        # print(self.edge_to_node)
+        self.neighbour_nodes = dict()
+
+        for _, ids_list in self.edge_to_node.items():
+            for i in range(len(ids_list)):
+                for j in range(i+1, len(ids_list)):
+                    if ids_list[i] not in self.neighbour_nodes:
+                        self.neighbour_nodes[ids_list[i]] = [ids_list[j]]
+                    else:
+                        self.neighbour_nodes[ids_list[i]].append(ids_list[j])
+
+
+        # print(self.neighbour_nodes)
+
+        
+
+
     def get_state(self):
         state = []
         for ids in self.agentIDs:
@@ -266,14 +318,15 @@ class SumoEnvironment(gym.Env):
 
 class TrafficSignal:
 
-    def __init__(self, id,tl_object : traci.trafficlight, sumo : traci, Phases : list ) :
+    def __init__(self, id,tl_object : traci.trafficlight, sumo : traci, Phases : list, neighbours : list, degree: int ) :
 
         self.phases = Phases
         self.id = id
         self.tl = tl_object
+        self.neighbours = neighbours
+        self.degree = degree
         self.lanes, self.incoming_lanes = self.getIncomingLanes()
-
-        self.Validate()
+        # self.Validate()
 
         self.sumo = sumo
 
@@ -285,10 +338,14 @@ class TrafficSignal:
         
 
     def getIncomingLanes(self):
-        lanes = self.tl.getControlledLanes(self.id)
+        lanes = list(self.tl.getControlledLanes(self.id))
+        if self.degree == 1:
+            for ids in self.neighbours:
+                lanes.extend(list(self.tl.getControlledLanes(ids)))
         incoming_lanes = []
         [incoming_lanes.append(x) for x in lanes if x not in incoming_lanes]
-        return lanes,incoming_lanes
+        # print(incoming_lanes)
+        return lanes, sorted(incoming_lanes)
     
     def getHaltedCars(self):
         num_cars = 0
@@ -296,9 +353,6 @@ class TrafficSignal:
             num_cars += self.sumo.lane.getLastStepHaltingNumber(lane)
         
         return num_cars
-    
-    # def getNeighbouringLanes(self, neighbours):
-        # Find traffic lanes
     
     def getState(self):
         lanes = self.incoming_lanes

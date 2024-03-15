@@ -1,7 +1,25 @@
-Loading net-file from './nets/bo/network.net.xml' ... done (67ms).
-Loading additional-files from './nets/bo/joined_bus_stops.add.xml' ... done (1ms).
-Loading additional-files from './nets/bo/joined_detectors.add.xml' ... done (3ms).
-Loading additional-files from './nets/bo/joined_vtypes.add.xml' ... done (2ms).
-Loading additional-files from './nets/bo/joined_tls.add.xml' ... done (2ms).
+Loading net-file from 'C:\Users\gkrit\projects\marlon_tdl\nets\bo\network.net.xml' ... done (115ms).
+Loading additional-files from 'C:\Users\gkrit\projects\marlon_tdl\nets\bo\joined_bus_stops.add.xml' ... done (4ms).
+Loading additional-files from 'C:\Users\gkrit\projects\marlon_tdl\nets\bo\joined_detectors.add.xml' ... done (15ms).
+Loading additional-files from 'C:\Users\gkrit\projects\marlon_tdl\nets\bo\joined_vtypes.add.xml' ... done (13ms).
+Loading additional-files from 'C:\Users\gkrit\projects\marlon_tdl\nets\bo\joined_tls.add.xml' ... done (10ms).
 Loading done.
-Simulation version 1.19.0 started via libsumo with time: 0.00.
+Simulation started with time: 0.00.
+Warning: Teleporting vehicle 'Pepoli_11_871'; waited too long (jam), lane='a201_1', time=2368.00.
+Warning: Vehicle 'Pepoli_11_871' ends teleporting on edge 'a201c', time=2368.00.
+Warning: Teleporting vehicle 'Gandhi_60_1823'; waited too long (jam), lane='a1b_1', time=4190.00.
+Warning: Vehicle 'Gandhi_60_1823' ends teleporting on edge 'a124', time=4209.00.
+Warning: Teleporting vehicle 'Gandhi_60_1834'; waited too long (jam), lane='a1b_1', time=4495.00.
+Warning: Vehicle 'Gandhi_60_1834' ends teleporting on edge 'a1', time=4495.00.
+Simulation ended at time: 5135.00
+Reason: All vehicles have left the simulation.
+Performance: 
+ Duration: 92.97s
+ Real time factor: 55.2311
+ UPS: 47310.143805
+Vehicles: 
+ Inserted: 11176
+ Running: 0
+ Waiting: 0
+ Teleports: 3 (Jam: 3)
+
