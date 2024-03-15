@@ -9,8 +9,6 @@
         <additional-files value="joined_bus_stops.add.xml,joined_detectors.add.xml,joined_vtypes.add.xml,joined_tls.add.xml"/>
     </input>
 
-    
-
     <report>
         <log value="sumo_log.txt"/>
         <no-step-log value="true"/>
