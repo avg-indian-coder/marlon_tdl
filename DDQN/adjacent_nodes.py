@@ -13,3 +13,15 @@ adjacent_nodes_bo = {
     "209": ["220"],
     "210": ["221"],
 }
+
+adjacent_nodes_3x3 = {
+    "intersectionNW": ["intersectionN", "intersectionW"],
+    "intersectionN": ["intersectionNE", "intersectionCenter", "intersectionNW"],
+    "intersectionNE": ["intersectionN", "intersectionE"],
+    "intersectionW": ["intersectionNW", "intersectionCenter", "intersectionSW"],
+    "intersectionCenter": ["intersectionN", "intersectionS", "intersectionE", "intersectionW"],
+    "intersectionE": ["intersectionNE", "intersectionCenter", "intersectionSE"],
+    "intersectionSW": ["intersectionW", "intersectionS"],
+    "intersectionS": ["intersectionSW", "intersectionCenter", "intersectionSE"],
+    "intersectionSE": ["intersectionS", "intersectionE"]
+}

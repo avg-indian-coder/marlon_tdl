@@ -58,7 +58,6 @@ def generator(net, route, end_time, no_vehicles, p):
 
     return car_gen_steps
 
-
 class TrafficGen:
     def __init__(self, net, route, end_time, no_vehicles, p):
         self._net = net
@@ -67,18 +66,24 @@ class TrafficGen:
         self._no_vehicles = no_vehicles
         self._p = p
     
-    def generate_routefile(self, seed):
+    def generate_routefile(self, seed, weibull=True):
         np.random.seed(seed)
+        # print(seed)
 
         if platform.system() == 'Windows':
-            cmd_code = f'python3 "%SUMO_HOME%/tools/randomTrips.py" --validate -r {self._route} --end {self._no_vehicles} -n {self._net}'
+            cmd_code = f'python3 "%SUMO_HOME%/tools/randomTrips.py" --seed {seed} --validate -r {self._route} --end {self._no_vehicles} -n {self._net}'
         else:
-            cmd_code = f'SUMO_HOME/tools/randomTrips.py --validate -r {self._route} --end {self._no_vehicles} -n {self._net}'
-        # os.system(cmd_code)
+            cmd_code = f'$SUMO_HOME/tools/randomTrips.py --seed {seed} --validate -r {self._route} --end {self._no_vehicles} -n {self._net} > /dev/null'
+
+        # print(cmd_code)
+        os.system(cmd_code)
         # with open(os.devnull, 'wb') as devnull:
         #     subprocess.run([cmd_code], shell=True, stdout=devnull, stderr=subprocess.STDOUT)
         # print("Gay")
-        subprocess.check_output(cmd_code, shell=True, stderr=subprocess.STDOUT)
+        # subprocess.check_output(cmd_code, shell=True, stderr=subprocess.STDOUT)
+
+        # if not weibull:
+        #     return
 
         f = open(self._route, "r+")
         l = f.readlines()
@@ -94,7 +99,10 @@ class TrafficGen:
         vehicle_count = len(l[line_idx + 1:]) / 3 # count of the vehicles in the self._route
 
         # get a weibull distribution too now, assume the simulation starts at 0 and ends at self._end_time
-        timings = np.random.weibull(2, int(vehicle_count))
+        if weibull:
+            timings = np.random.weibull(2, int(vehicle_count))
+        else:
+            timings = np.random.randn(int(vehicle_count))
         timings = np.sort(timings)
 
         car_gen_steps = []
@@ -124,17 +132,17 @@ class TrafficGen:
         f = open(self._route, "w")
         f.writelines(l)
 
-        return car_gen_steps
+        # return car_gen_steps
 
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    generator = TrafficGen('/nets/bo/joined_buslanes.net.xml', 'gen_route.rou.xml', 5400, 1000, 0.1)
-    car_gen_steps = generator.generate_routefile(3)
+    generator = TrafficGen('nets/bo/network.net.xml', 'nets/bo/generated_route.rou.xml', 5400, 1000, 0.1)
+    generator.generate_routefile(3, weibull=False)
 
-    if True:
-        plt.title("Weibull distribution (2000 cars generated)")
-        plt.xlabel("Time steps")
-        plt.ylabel("Number of cars generated")
-        plt.hist(car_gen_steps, bins = 54)
-        plt.show()
+    # if True:
+    #     plt.title("Weibull distribution (2000 cars generated)")
+    #     plt.xlabel("Time steps")
+    #     plt.ylabel("Number of cars generated")
+    #     plt.hist(car_gen_steps, bins = 54)
+    #     plt.show()
