@@ -4,7 +4,7 @@
 
     <input>
         <net-file value="network.net.xml"/>
-        <route-files value="evaluation.rou.xml"/>
+        <route-files value="evaluation_route.rou.xml"/>
         <!-- <additional-files value="joined_bus_stops.add.xml,joined_detectors.add.xml,joined_vtypes.add.xml,joined_tls.add.xml"/> -->
     </input>
 

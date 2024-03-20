@@ -19,9 +19,10 @@ else:
     sys.exit("please declare environment variable 'SUMO_HOME'")
 
 class SumoEnvironment(gym.Env):
-    def __init__(self, max_steps, neighbours, degree_of_multiagency, network, cfg_file, use_gui):
+    def __init__(self, max_steps, neighbours, degree_of_multiagency, network, cfg_file, eval_cfg, use_gui):
         self.max_steps = max_steps
         self._cfg = cfg_file
+        self._eval_cfg = eval_cfg
         self.use_gui = use_gui
         self.results = True
         self.episode = 0
@@ -70,8 +71,23 @@ class SumoEnvironment(gym.Env):
 
         return self.run
 
-    def reset(self, callback, seed):
+    def reset(self, callback, seed, evaluate: bool):
         # sumolib.net.TLS.getConnections()
+        if evaluate:
+            self._step = 0
+
+            if self.start:
+                # self.get_adjacent_nodes(1)
+                self.sumo.close()
+            else:
+                self.start = True
+            
+            self._start_evaluation()
+            self.init_agents_info()
+            
+            obs = self.get_state()
+            return obs
+        
         self._step = 0
         self.episode += 1
         # self.df = pd.DataFrame(columns=["step","waiting_time"])
@@ -89,6 +105,63 @@ class SumoEnvironment(gym.Env):
 
         obs = self.get_state()
         return obs
+    
+    def _start_evaluation(self):
+        if self.use_gui :
+            self._sumo_binary = sumolib.checkBinary("sumo-gui")
+        else:
+            self._sumo_binary = sumolib.checkBinary("sumo")
+        
+        sumo_cmd = [
+            self._sumo_binary,
+            # "-n",
+            # self._net,
+            # "-r",
+            # self._route,
+            # "--max-depart-delay",
+            # str(self.max_depart_delay),
+            # "--waiting-time-memory",
+            # str(self.waiting_time_memory),
+            "-c",
+            self._eval_cfg,
+            "--no-warnings"
+        ]
+
+        # sumo_cmd.extend(["--summary",
+        # f"./DDQN/esults/{self.rPath}/Summary.xml",
+        # "--queue-output",
+        # f"./results/{self.rPath}/QueueInfo.xml",
+        # "--tripinfo-output",
+        # f"./results/{self.rPath}/VehicleInfo.xml"])
+        if not os.path.exists(f"./DDQN/runs/{self.network}/run_{self.run}/Summary_Eval"):
+            os.mkdir(f"./DDQN/runs/{self.network}/run_{self.run}/Summary_Eval")
+        if not os.path.exists(f"./DDQN/runs/{self.network}/run_{self.run}/QueueInfo_Eval"):
+            os.mkdir(f"./DDQN/runs/{self.network}/run_{self.run}/QueueInfo_Eval")
+        if not os.path.exists(f"./DDQN/runs/{self.network}/run_{self.run}/VehicleInfo_Eval"):
+            os.mkdir(f"./DDQN/runs/{self.network}/run_{self.run}/VehicleInfo_Eval")
+
+        sumo_cmd.extend(["--summary",
+                         f"./DDQN/runs/{self.network}/run_{self.run}/Summary_Eval/episode_{self.episode}.xml",
+                         "--queue-output",
+                         f"./DDQN/runs/{self.network}/run_{self.run}/QueueInfo_Eval/episode_{self.episode}.xml",
+                         "--tripinfo-output",
+                         f"./DDQN/runs/{self.network}/run_{self.run}/VehicleInfo_Eval/episode_{self.episode}.xml"])
+
+        if self.sumo_seed == "random":
+            sumo_cmd.append("--random")
+        else:
+            sumo_cmd.extend(["--seed", str(self.sumo_seed)])
+        if self.use_gui :
+            sumo_cmd.extend(["--start", "--quit-on-end"])
+
+        # to get accumulated waiting time from simulation start
+        sumo_cmd.extend(["--waiting-time-memory", "10000"])
+
+        self.label += random.randint(0,5000)
+        traci.start(sumo_cmd, label=self.label)
+
+        if self.use_gui :
+            self.sumo.gui.setSchema(traci.gui.DEFAULT_VIEW, "real world")
 
     def _start_simulation(self):
         if self.use_gui :

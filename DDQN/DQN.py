@@ -31,11 +31,15 @@ env = SumoEnvironment(use_gui=False,
                       max_steps=3600,
                       network=network,
                       neighbours=adj_nodes,
-                      degree_of_multiagency=1,
-                      cfg_file=f"./nets/{network}/run.sumocfg")
+                      degree_of_multiagency=0,
+                      cfg_file=f"./nets/{network}/run.sumocfg",
+                      eval_cfg=f"./nets/{network}/evaluation.sumocfg")
 
 run = env.get_run()
 with open(f"./DDQN/runs/{network}/run_{run}/logs.csv", "w") as f:
+    print(f"episode,rewards,avg_acc_waiting_time,max_acc_waiting_time,epsilon", file=f)
+
+with open(f"./DDQN/runs/{network}/run_{run}/eval_logs.csv", "w") as f:
     print(f"episode,rewards,avg_acc_waiting_time,max_acc_waiting_time,epsilon", file=f)
 
 # set up matplotlib
@@ -57,7 +61,7 @@ traffic_generator = TrafficGen(
     f"nets/{network}/network.net.xml",
     f"nets/{network}/generated_route.rou.xml",
     3600,
-    2000,
+    1000,
     0.1)
 
 class ReplayMemory(object):
@@ -117,7 +121,7 @@ LR = 1e-4
 
 models = {}
 
-state = env.reset(traffic_generator.generate_routefile, 0)
+state = env.reset(traffic_generator.generate_routefile, 0, False)
 
 for id in env.info.keys():
     n_observations = env.info[id]["State Space"]
@@ -253,7 +257,9 @@ rewards = []
 c = 1
 eps = 1.0
 min_eps = 0.00
-for i_episode in range(1, num_episodes + 1):
+eval_after = 20
+i_episode = 1
+while i_episode <= num_episodes:
     print(f"Episode {i_episode} simulating...")
 
     # Saving of checkpoints
@@ -275,7 +281,7 @@ for i_episode in range(1, num_episodes + 1):
                        f"./DDQN/runs/{network}/run_{run}/target_net_checkpoint_{c}/agent_{id}")
         c += 1
 
-    state = env.reset(traffic_generator.generate_routefile, i_episode)
+    state = env.reset(traffic_generator.generate_routefile, i_episode, True)
 
     guesses = 0
     # Initialize the environment and get it's state
@@ -284,18 +290,10 @@ for i_episode in range(1, num_episodes + 1):
         states[id] = torch.tensor(
             obs, dtype=torch.float32, device=device).unsqueeze(0)
 
-    # if i_episode % 5 == 0 :
-    #     torch.save(policy_net.state_dict(), f"./models/DQNv2/policy_net_checkpoint_{c}")
-    #     torch.save(target_net.state_dict(), f"./models/DQNv2/target_net_checkpoint_{c}")
-    #     c += 1
-
     eps_reward = 0
     t = 1
 
-    
     for t in count():
-        #print(f"Episode {i_episode} Step {t}")
-        # print(t)
         actions = {}
         step_actions = []
 
@@ -306,34 +304,26 @@ for i_episode in range(1, num_episodes + 1):
 
         observations, reward, terminated, truncated = env.step(step_actions)
 
-        # ind = env.agentIDs.index("232")
-        # print(env.info["232"])
-        # print(observations[ind], reward[ind], step_actions[ind])
-
-        # for id in env.agentIDs:
-        #     optimize_model(models[id], 5)  
-
         done = True in terminated
         next_states = {}
         rewards = {}
-
+        
         for i, id in zip(range(len(observations)), env.agentIDs):
             next_states[id] = torch.tensor(
                 observations[i], dtype=torch.float32, device=device).unsqueeze(0)
             rewards[id] = torch.tensor([reward[i]], device=device)
-            models[id]['memory'].push(
-                states[id], actions[id], next_states[id], rewards[id])
+            # if not evaluate:
+            models[id]['memory'].push(states[id], actions[id], next_states[id], rewards[id])
             eps_reward += rewards[id].item()
 
         # Move to the next state
         states = next_states
 
-        # Perform one step of the optimization (on the policy network)
-
         if done:
             episode_durations.append(t + 1)
             break
-
+    
+    # if not evaluate:
     print("Training...")
     for id in env.agentIDs:
         optimize_model(models[id], 1800)
@@ -345,35 +335,78 @@ for i_episode in range(1, num_episodes + 1):
         models[id]['target_net'].load_state_dict(target_net_state_dict)
     print("Training done!")
     
-    # if i_episode % 5 == 0:
-    #     target_net_state_dict = models[id]['target_net'].state_dict()
-    #     policy_net_state_dict = models[id]['policy_net'].state_dict()
-    #     for key in policy_net_state_dict:
-    #         target_net_state_dict[key] = policy_net_state_dict[key] * \
-    #             TAU + target_net_state_dict[key]*(1-TAU)
-    #     models[id]['target_net'].load_state_dict(target_net_state_dict)
-
     avg_eps_reward = eps_reward/t
-    # writer.add_scalar("charts/avg_episodic_return", avg_eps_reward, i_episode)
-
-    # logging.info(
-    #     f"Episode {i_episode} | Reward : {avg_eps_reward} | Guesses : {guesses} | Total timesteps : {t}")
     print(f"Episode {i_episode} | Reward : {avg_eps_reward} | Acc. waiting time : {round(env.getAvgAccumulatedWaitingTime(), 3)} | Guesses : {guesses} | Epsilon : {eps} | Total timesteps : {t}")
 
+    # if not evaluate:
     with open(f"./DDQN/runs/{network}/run_{run}/logs.csv", "a") as f:
         print(f"{i_episode},{avg_eps_reward},{round(env.getAvgAccumulatedWaitingTime(), 3)},{round(env.getMaxAccumulatedWaitingTime(), 3)},{eps}", file=f)
 
+    if i_episode % 20 == 0 or i_episode == 1:
+        print(f"Episode {i_episode} evaluating...")
+
+        state = env.reset(traffic_generator.generate_routefile, i_episode, False)
+
+        guesses = 0
+        # Initialize the environment and get it's state
+        states = {}
+        for id, obs in zip(env.agentIDs, state):
+            states[id] = torch.tensor(
+                obs, dtype=torch.float32, device=device).unsqueeze(0)
+
+        eps_reward = 0
+        t = 1
+        
+        for t in count():
+            actions = {}
+            step_actions = []
+
+            for id in env.agentIDs:
+                action = select_action(models[id], states[id], eps)
+                actions[id] = action
+                step_actions.append(action.item())
+
+            observations, reward, terminated, truncated = env.step(step_actions)
+
+            done = True in terminated
+            next_states = {}
+            rewards = {}
+            
+            for i, id in zip(range(len(observations)), env.agentIDs):
+                next_states[id] = torch.tensor(
+                    observations[i], dtype=torch.float32, device=device).unsqueeze(0)
+                rewards[id] = torch.tensor([reward[i]], device=device)
+                # if not evaluate:
+                # models[id]['memory'].push(states[id], actions[id], next_states[id], rewards[id])
+                eps_reward += rewards[id].item()
+
+            # Move to the next state
+            states = next_states
+
+            # Perform one step of the optimization (on the policy network)
+            if done:
+                episode_durations.append(t + 1)
+                break
+
+        avg_eps_reward = eps_reward/t
+        print(f"Evaluation {i_episode} | Reward : {avg_eps_reward} | Acc. waiting time : {round(env.getAvgAccumulatedWaitingTime(), 3)} | Guesses : {guesses} | Epsilon : {eps} | Total timesteps : {t}")
+
+        with open(f"./DDQN/runs/{network}/run_{run}/eval_logs.csv", "a") as f:
+            print(f"{i_episode},{avg_eps_reward},{round(env.getAvgAccumulatedWaitingTime(), 3)},{round(env.getMaxAccumulatedWaitingTime(), 3)},{eps}", file=f)
+
+    # if not evaluate:
+    i_episode += 1
     if eps > min_eps:
         eps = eps - (1/num_episodes)
-        # eps = eps*0.95
+        eps = round(eps, 3)
 
 exist1 = os.path.exists(f"./DDQN/runs/{network}/run_{run}/policy_net")
 if not exist1:
     os.makedirs(f"./DDQN/runs/{network}/run_{run}/policy_net")
 
-exist2 = os.path.exists(f"./runs/{network}/run_{run}/target_net")
+exist2 = os.path.exists(f"./DDQN/runs/{network}/run_{run}/target_net")
 if not exist2:
-    os.makedirs(f"./runs/{network}/run_{run}/target_net")
+    os.makedirs(f"./DDQN/runs/{network}/run_{run}/target_net")
 
 for id in env.agentIDs:
     policy_net = models[id]["policy_net"]

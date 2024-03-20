@@ -1,25 +1,16 @@
-Loading net-file from '/home/capemox/projects/marlon_tdl/nets/bo/network.net.xml' ... done (58ms).
-Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_bus_stops.add.xml' ... done (12ms).
-Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_detectors.add.xml' ... done (2ms).
+Loading net-file from '/home/capemox/projects/marlon_tdl/nets/bo/network.net.xml' ... done (101ms).
+Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_bus_stops.add.xml' ... done (2ms).
+Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_detectors.add.xml' ... done (4ms).
 Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_vtypes.add.xml' ... done (2ms).
-Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_tls.add.xml' ... done (2ms).
+Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_tls.add.xml' ... done (3ms).
 Loading done.
-Simulation started with time: 0.00
-Warning: Teleporting vehicle '264'; waited too long (wrong lane), lane='a31_0', time=586.00.
-Warning: Vehicle '264' ends teleporting on edge 'a113', time=586.00.
-Warning: Teleporting vehicle '534'; waited too long (wrong lane), lane='a31_0', time=935.00.
-Warning: Vehicle '534' ends teleporting on edge 'a113', time=935.00.
-Warning: Teleporting vehicle '587'; waited too long (wrong lane), lane='a31_0', time=1240.00.
-Warning: Vehicle '587' ends teleporting on edge 'a113', time=1240.00.
-Simulation ended at time: 1778.00
-Reason: All vehicles have left the simulation.
+Simulation ended at time: 0.00
 Performance: 
- Duration: 631.78s
- Real time factor: 2.81427
- UPS: 344.958142
+ Duration: 346.47s
+ Real time factor: 0
+ UPS: 0.000000
 Vehicles: 
- Inserted: 836
+ Inserted: 0 (Loaded: 3)
  Running: 0
  Waiting: 0
-Teleports: 3 (Wrong Lane: 3)
 
