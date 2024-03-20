@@ -5,7 +5,9 @@ ENV SUMO_USER anonimoose
 # RUN apt update && DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common
 # RUN add-apt-repository ppa:sumo/stable && apt update && apt install -y sumo sumo-tools sumo-doc
 
-RUN apt update && apt install -y sumo sumo-tools sumo-doc python3 python3-dev python3-pip
+RUN apt update && DEBIAN_FRONTEND=noninteractive apt install -y sumo sumo-tools sumo-doc python3 python3-dev python3-pip
+
+RUN apt update && apt install -y traci nano
 
 ENV SUMO_HOME usr/share/sumo
 
