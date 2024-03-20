@@ -57,7 +57,7 @@ traffic_generator = TrafficGen(
     f"nets/{network}/network.net.xml",
     f"nets/{network}/generated_route.rou.xml",
     3600,
-    1000,
+    2000,
     0.1)
 
 class ReplayMemory(object):
@@ -367,9 +367,9 @@ for i_episode in range(1, num_episodes + 1):
         eps = eps - (1/num_episodes)
         # eps = eps*0.95
 
-exist1 = os.path.exists(f".DDQN/runs/{network}/run_{run}/policy_net")
+exist1 = os.path.exists(f"./DDQN/runs/{network}/run_{run}/policy_net")
 if not exist1:
-    os.makedirs(f".DDQN/runs/{network}/run_{run}/policy_net")
+    os.makedirs(f"./DDQN/runs/{network}/run_{run}/policy_net")
 
 exist2 = os.path.exists(f"./runs/{network}/run_{run}/target_net")
 if not exist2:

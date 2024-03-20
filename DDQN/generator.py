@@ -137,7 +137,7 @@ class TrafficGen:
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    generator = TrafficGen('nets/bo/network.net.xml', 'nets/bo/generated_route.rou.xml', 5400, 1000, 0.1)
+    generator = TrafficGen('nets/bo/network.net.xml', 'nets/3x3/evaluation_route.rou.xml', 5400, 2000, 0.1)
     generator.generate_routefile(3, weibull=False)
 
     # if True:

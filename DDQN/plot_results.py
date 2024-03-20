@@ -50,7 +50,7 @@ class Plot:
 
 
 if __name__ == "__main__":
-    plot = Plot("./DDQN/runs/3x3/run_3")
+    plot = Plot("./DDQN/runs/3x3/run_6")
     plot.plot()
 
         

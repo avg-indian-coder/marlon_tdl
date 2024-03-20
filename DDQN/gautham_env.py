@@ -111,13 +111,25 @@ class SumoEnvironment(gym.Env):
             "--no-warnings"
         ]
 
-        # if self.results :
-        #     sumo_cmd.extend(["--summary",
-        #     f"./results/{self.rPath}/Summary.xml",
-        #     "--queue-output",
-        #     f"./results/{self.rPath}/QueueInfo.xml",
-        #     "--tripinfo-output",
-        #     f"./results/{self.rPath}/VehicleInfo.xml"])
+        # sumo_cmd.extend(["--summary",
+        # f"./DDQN/esults/{self.rPath}/Summary.xml",
+        # "--queue-output",
+        # f"./results/{self.rPath}/QueueInfo.xml",
+        # "--tripinfo-output",
+        # f"./results/{self.rPath}/VehicleInfo.xml"])
+        if not os.path.exists(f"./DDQN/runs/{self.network}/run_{self.run}/Summary"):
+            os.mkdir(f"./DDQN/runs/{self.network}/run_{self.run}/Summary")
+        if not os.path.exists(f"./DDQN/runs/{self.network}/run_{self.run}/QueueInfo"):
+            os.mkdir(f"./DDQN/runs/{self.network}/run_{self.run}/QueueInfo")
+        if not os.path.exists(f"./DDQN/runs/{self.network}/run_{self.run}/VehicleInfo"):
+            os.mkdir(f"./DDQN/runs/{self.network}/run_{self.run}/VehicleInfo")
+
+        sumo_cmd.extend(["--summary",
+                         f"./DDQN/runs/{self.network}/run_{self.run}/Summary/episode_{self.episode}.xml",
+                         "--queue-output",
+                         f"./DDQN/runs/{self.network}/run_{self.run}/QueueInfo/episode_{self.episode}.xml",
+                         "--tripinfo-output",
+                         f"./DDQN/runs/{self.network}/run_{self.run}/VehicleInfo/episode_{self.episode}.xml"])
 
         if self.sumo_seed == "random":
             sumo_cmd.append("--random")
