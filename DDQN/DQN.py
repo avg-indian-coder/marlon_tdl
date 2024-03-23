@@ -26,6 +26,8 @@ elif network == "3x3":
     from adjacent_nodes import adjacent_nodes_3x3
     adj_nodes = adjacent_nodes_3x3
 
+if not os.path.exists(f"./DDQN/runs/"):
+    os.mkdir(f"./DDQN/runs/")
 
 env = SumoEnvironment(use_gui=False, 
                       max_steps=3600,

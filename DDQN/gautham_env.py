@@ -18,8 +18,13 @@ if 'SUMO_HOME' in os.environ:
 else:   
     sys.exit("please declare environment variable 'SUMO_HOME'")
 
+reward_functions = [
+    "carsInLanes",
+    ""
+]
+
 class SumoEnvironment(gym.Env):
-    def __init__(self, max_steps, neighbours, degree_of_multiagency, network, cfg_file, eval_cfg, use_gui):
+    def __init__(self, max_steps, neighbours, degree_of_multiagency, network, cfg_file, eval_cfg, use_gui, reward_function):
         self.max_steps = max_steps
         self._cfg = cfg_file
         self._eval_cfg = eval_cfg
