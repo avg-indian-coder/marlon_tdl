@@ -35,7 +35,8 @@ env = SumoEnvironment(use_gui=False,
                       neighbours=adj_nodes,
                       degree_of_multiagency=0,
                       cfg_file=f"./nets/{network}/run.sumocfg",
-                      eval_cfg=f"./nets/{network}/evaluation.sumocfg")
+                      eval_cfg=f"./nets/{network}/evaluation.sumocfg",
+                      reward_function=None)
 
 run = env.get_run()
 with open(f"./DDQN/runs/{network}/run_{run}/logs.csv", "w") as f:
