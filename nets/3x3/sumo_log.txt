@@ -1,0 +1,12 @@
+Loading net-file from '/home/capemox/projects/marlon_tdl/nets/3x3/network.net.xml' ... done (14ms).
+Loading done.
+Simulation ended at time: 0.00
+Performance: 
+ Duration: 706.28s
+ Real time factor: 0
+ UPS: 0.000000
+Vehicles: 
+ Inserted: 0 (Loaded: 1)
+ Running: 0
+ Waiting: 0
+

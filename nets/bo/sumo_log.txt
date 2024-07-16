@@ -1,16 +1,20 @@
-Loading net-file from '/home/capemox/projects/marlon_tdl/nets/bo/network.net.xml' ... done (101ms).
-Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_bus_stops.add.xml' ... done (2ms).
-Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_detectors.add.xml' ... done (4ms).
-Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_vtypes.add.xml' ... done (2ms).
-Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_tls.add.xml' ... done (3ms).
+Loading net-file from '/home/capemox/projects/marlon_tdl/nets/bo/network.net.xml' ... done (52ms).
+Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_bus_stops.add.xml' ... done (1ms).
+Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_detectors.add.xml' ... done (3ms).
+Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_vtypes.add.xml' ... done (1ms).
+Loading additional-files from '/home/capemox/projects/marlon_tdl/nets/bo/joined_tls.add.xml' ... done (2ms).
 Loading done.
+Error: The edge 'intersectionW___intersectionCenter' within the route for vehicle '0' is not known.
+ The route can not be build.
+Quitting (on error).
 Simulation ended at time: 0.00
+Reason: All vehicles have left the simulation.
 Performance: 
- Duration: 346.47s
+ Duration: 14.29s
  Real time factor: 0
  UPS: 0.000000
 Vehicles: 
- Inserted: 0 (Loaded: 3)
+ Inserted: 0
  Running: 0
  Waiting: 0
 

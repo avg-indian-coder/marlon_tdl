@@ -17,7 +17,7 @@ import logging
 from gymnasium.spaces import Discrete
 from torch.utils.tensorboard import SummaryWriter
 
-network = "bo"
+network = "3x3"
 
 if network == "bo":
     from adjacent_nodes import adjacent_nodes_bo

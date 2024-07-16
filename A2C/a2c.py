@@ -1,23 +1,23 @@
-import gymnasium as gym
+import numpy as np
 import random
-import matplotlib
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.functional as F
+
+import gymnasium as gym
+from gymnasium.spaces import Discrete
+from torch import nn
 import matplotlib.pyplot as plt
 from collections import namedtuple, deque
 from itertools import count
 import os
-from tqdm import tqdm
 
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
 from gautham_env import SumoEnvironment
 from generator import TrafficGen
-import logging
-from gymnasium.spaces import Discrete
-from torch.utils.tensorboard import SummaryWriter
 
-network = "bo"
+
+network = "3x3"
 
 if network == "bo":
     from adjacent_nodes import adjacent_nodes_bo
@@ -26,8 +26,9 @@ elif network == "3x3":
     from adjacent_nodes import adjacent_nodes_3x3
     adj_nodes = adjacent_nodes_3x3
 
-if not os.path.exists(f"./DDQN/runs/"):
-    os.mkdir(f"./DDQN/runs/")
+if not os.path.exists(f"./A2C/runs/"):
+    os.mkdir(f"./A2C/runs/")
+
 
 env = SumoEnvironment(use_gui=False, 
                       max_steps=3600,
@@ -39,16 +40,18 @@ env = SumoEnvironment(use_gui=False,
                       reward_function=None)
 
 run = env.get_run()
-with open(f"./DDQN/runs/{network}/run_{run}/logs.csv", "w") as f:
+
+
+with open(f"./A2C/runs/{network}/run_{run}/logs.csv", "w") as f:
     print(f"episode,rewards,avg_acc_waiting_time,max_acc_waiting_time,epsilon", file=f)
 
-with open(f"./DDQN/runs/{network}/run_{run}/eval_logs.csv", "w") as f:
+with open(f"./A2C/runs/{network}/run_{run}/eval_logs.csv", "w") as f:
     print(f"episode,rewards,avg_acc_waiting_time,max_acc_waiting_time,epsilon", file=f)
 
 # set up matplotlib
-is_ipython = 'inline' in matplotlib.get_backend()
-if is_ipython:
-    from IPython import display
+# is_ipython = 'inline' in matplotlib.get_backend()
+# if is_ipython:
+#     from IPython import display
 
 plt.ion()
 
@@ -67,37 +70,36 @@ traffic_generator = TrafficGen(
     1000,
     0.1)
 
-class ReplayMemory(object):
-    def __init__(self, capacity):
-        self.memory = deque([], maxlen=capacity)
 
-    def push(self, *args):
-        """Save a transition"""
-        self.memory.append(Transition(*args))
-
-    def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
-
-    def __len__(self):
-        return len(self.memory)
-
-
-class DQN(nn.Module):
-    def __init__(self, n_observations, n_actions):
-        super(DQN, self).__init__()
-        # self.bn = nn.BatchNorm1d(num_features=n_observations, affine=False)
-        self.layer1 = nn.Linear(n_observations, n_observations*3)
-        self.layer2 = nn.Linear(n_observations*3, n_observations*3)
-        self.layer3 = nn.Linear(n_observations*3, n_actions)
-
-    # Called with either one element to determine next action, or a batch
-    # during optimization. Returns tensor([[left0exp,right0exp]...]).
-    def forward(self, x):
-        x = F.relu(self.layer1(x))
-        x = F.relu(self.layer2(x))
-        return self.layer3(x)
+class Actor(nn.Module):
+    def __init__(self, state_dim, n_actions):
+        super().__init__()
+        self.model = nn.Sequential(
+            nn.Linear(state_dim, 64),
+            nn.Tanh(),
+            nn.Linear(64, 32),
+            nn.Tanh(),
+            nn.Linear(32, n_actions),
+            nn.Softmax()
+        )
+    
+    def forward(self, X):
+        return self.model(X)
 
 
+class Critic(nn.Module):
+    def __init__(self, state_dim):
+        super().__init__()
+        self.model = nn.Sequential(
+            nn.Linear(state_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1)
+        )
+    
+    def forward(self, X):
+        return self.model(X)
 # BATCH_SIZE is the number of transitions sampled from the replay buffer
 # GAMMA is the discount factor as mentioned in the previous section
 # EPS_START is the starting value of epsilon
@@ -117,8 +119,8 @@ LR = 1e-4
 # print(state)
 
 # run_name = "DQN_bo"
-# writer = SummaryWriter(f"./DDQN/runs/{run_name}")
-# logging.basicConfig(filename=f'./DDQN/rewards/{run_name}', filemode='w',
+# writer = SummaryWriter(f"./A2C/runs/{run_name}")
+# logging.basicConfig(filename=f'./A2C/rewards/{run_name}', filemode='w',
 #                     format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 
@@ -130,18 +132,17 @@ for id in env.info.keys():
     n_observations = env.info[id]["State Space"]
     n_actions = env.info[id]["Action Space"]
     models[id] = {
-        "policy_net": DQN(n_observations, n_actions).to(device),
-        "target_net": DQN(n_observations, n_actions).to(device),
-        "memory": ReplayMemory(10000),
+        "actor": Actor(n_observations, n_actions).to(device),
+        "critic": Critic(n_observations).to(device),
         "action_space": Discrete(n_actions),
         "observation_space": n_observations
     }
 
-    models[id]["optimizer"] = optim.AdamW(
-        models[id]["policy_net"].parameters(), lr=LR, amsgrad=True),
-    models[id]["target_net"].load_state_dict(
-        models[id]["policy_net"].state_dict())
-
+    models[id]["actor_optimizer"] = optim.AdamW(
+        models[id]["actor"].parameters(), lr=LR, amsgrad=True)
+    models[id]["critic_optimizer"] = optim.AdamW(
+        models[id]["critic"].parameters(), lr=LR, amsgrad=True
+    )
 
 steps_done = 0
 guesses = 0
@@ -154,44 +155,25 @@ def select_action(model, state, eps_threshold):
     steps_done += 1
     # print(policy_net(state))
 
-    if sample > eps_threshold:
-        with torch.no_grad():
+    if sample >= 0.0:
+    # if sample > 0.0:
+        # with torch.no_grad():
             # t.max(1) will return the largest column value of each row.
             # second column on max result is index of where max element was
             # found, so we pick action with the larger expected reward.
-            return model["policy_net"](state).max(1)[1].view(1, 1)
+        action = model["actor"](state)
+        # print(action, action.max(1)[1].view(1, 1))
+        return action.max(1)[1].view(1, 1), action
     else:
         guesses += 1
-        return torch.tensor([[model["action_space"].sample()]], device=device, dtype=torch.long)
+        action = [[model["action_space"].sample()]]
+        action_arr = [[0]*model["action_space"].n]
+        action_arr[0][action[0][0]] = 1
 
+        return torch.tensor(action, device=device, dtype=torch.long), torch.tensor(action_arr, dtype=torch.long) 
 
 episode_durations = []
 
-
-# def plot_durations(show_result=False):
-#     plt.figure(1)
-#     durations_t = torch.tensor(episode_durations, dtype=torch.float)
-#     if show_result:
-#         plt.title('Result')
-#     else:
-#         plt.clf()
-#         plt.title('Training...')
-#     plt.xlabel('Episode')
-#     plt.ylabel('Duration')
-#     plt.plot(durations_t.numpy())
-#     # Take 100 episode averages and plot them too
-#     if len(durations_t) >= 100:
-#         means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
-#         means = torch.cat((torch.zeros(99), means))
-#         plt.plot(means.numpy())
-
-#     plt.pause(0.001)  # pause a bit so that plots are updated
-#     if is_ipython:
-#         if not show_result:
-#             display.display(plt.gcf())
-#             display.clear_output(wait=True)
-#         else:
-#             display.display(plt.gcf())
 def optimize_model(model, no_of_epochs):
 
     memory = model["memory"]
@@ -256,6 +238,11 @@ if torch.cuda.is_available():
 else:
     num_episodes = 100
 
+
+def t_function(x):
+    return torch.from_numpy(x).float()
+
+
 rewards = []
 c = 1
 eps = 1.0
@@ -267,21 +254,23 @@ while i_episode <= num_episodes:
 
     # Saving of checkpoints
     if i_episode % 5 == 0:
-        exist1 = os.path.exists(f"./DDQN/runs/{network}/run_{run}/policy_net_checkpoint_{c}")
+        exist1 = os.path.exists(f"./A2C/runs/{network}/run_{run}/policy_net_checkpoint_{c}")
         if not exist1:
-            os.makedirs(f"./DDQN/runs/{network}/run_{run}/policy_net_checkpoint_{c}")
+            os.makedirs(f"./A2C/runs/{network}/run_{run}/policy_net_checkpoint_{c}")
 
-        exist2 = os.path.exists(f"./DDQN/runs/{network}/run_{run}/target_net_checkpoint_{c}")
+        exist2 = os.path.exists(f"./A2C/runs/{network}/run_{run}/target_net_checkpoint_{c}")
         if not exist2:
-            os.makedirs(f"./DDQN/runs/{network}/run_{run}/target_net_checkpoint_{c}")
+            os.makedirs(f"./A2C/runs/{network}/run_{run}/target_net_checkpoint_{c}")
 
         for id in env.agentIDs:
-            policy_net = models[id]["policy_net"]
-            target_net = models[id]["target_net"]
-            torch.save(policy_net.state_dict(),
-                       f"./DDQN/runs/{network}/run_{run}/policy_net_checkpoint_{c}/agent_{id}")
-            torch.save(target_net.state_dict(),
-                       f"./DDQN/runs/{network}/run_{run}/target_net_checkpoint_{c}/agent_{id}")
+            # policy_net = models[id]["policy_net"]
+            # target_net = models[id]["target_net"]
+            actor = models[id]["actor"]
+            critic = models[id]["critic"]
+            torch.save(actor.state_dict(),
+                       f"./A2C/runs/{network}/run_{run}/policy_net_checkpoint_{c}/agent_{id}")
+            torch.save(critic.state_dict(),
+                       f"./A2C/runs/{network}/run_{run}/target_net_checkpoint_{c}/agent_{id}")
         c += 1
 
     state = env.reset(traffic_generator.generate_routefile, i_episode, True)
@@ -298,11 +287,14 @@ while i_episode <= num_episodes:
 
     for t in count():
         actions = {}
+        probs_dict = {}
         step_actions = []
 
         for id in env.agentIDs:
-            action = select_action(models[id], states[id], eps)
+            # print(id)
+            action, probs = select_action(models[id], states[id], eps)
             actions[id] = action
+            probs_dict[id] = probs
             step_actions.append(action.item())
 
         observations, reward, terminated, truncated = env.step(step_actions)
@@ -310,14 +302,32 @@ while i_episode <= num_episodes:
         done = True in terminated
         next_states = {}
         rewards = {}
+
+        # print("next step...")
         
         for i, id in zip(range(len(observations)), env.agentIDs):
+            # print("id is", id)
+            dist = torch.distributions.Categorical(probs=probs_dict[id])
+            select = dist.sample()
+
             next_states[id] = torch.tensor(
                 observations[i], dtype=torch.float32, device=device).unsqueeze(0)
             rewards[id] = torch.tensor([reward[i]], device=device)
-            # if not evaluate:
-            models[id]['memory'].push(states[id], actions[id], next_states[id], rewards[id])
+            
             eps_reward += rewards[id].item()
+            advantage = rewards[id] + (1-done)*GAMMA*models[id]["critic"](next_states[id]) - models[id]["critic"](states[id])
+            
+            critic_loss = advantage.pow(2).mean()
+            models[id]["critic_optimizer"].zero_grad()
+            critic_loss.backward()
+            models[id]["critic_optimizer"].step()
+            # print("critic optimised!")
+
+            actor_loss = -dist.log_prob(select)*advantage.detach()
+            # print(actor_loss)
+            models[id]["actor_optimizer"].zero_grad()
+            actor_loss.backward()
+            models[id]["actor_optimizer"].step()
 
         # Move to the next state
         states = next_states
@@ -327,22 +337,22 @@ while i_episode <= num_episodes:
             break
     
     # if not evaluate:
-    print("Training...")
-    for id in env.agentIDs:
-        optimize_model(models[id], 1800)
-        target_net_state_dict = models[id]['target_net'].state_dict()
-        policy_net_state_dict = models[id]['policy_net'].state_dict()
-        for key in policy_net_state_dict:
-            target_net_state_dict[key] = policy_net_state_dict[key] * \
-                TAU + target_net_state_dict[key]*(1-TAU)
-        models[id]['target_net'].load_state_dict(target_net_state_dict)
-    print("Training done!")
+    # print("Training...")
+    # for id in env.agentIDs:
+    #     optimize_model(models[id], 1800)
+    #     target_net_state_dict = models[id]['target_net'].state_dict()
+    #     policy_net_state_dict = models[id]['policy_net'].state_dict()
+    #     for key in policy_net_state_dict:
+    #         target_net_state_dict[key] = policy_net_state_dict[key] * \
+    #             TAU + target_net_state_dict[key]*(1-TAU)
+    #     models[id]['target_net'].load_state_dict(target_net_state_dict)
+    # print("Training done!")
     
     avg_eps_reward = eps_reward/t
     print(f"Episode {i_episode} | Reward : {avg_eps_reward} | Acc. waiting time : {round(env.getAvgAccumulatedWaitingTime(), 3)} | Guesses : {guesses} | Epsilon : {eps} | Total timesteps : {t}")
 
     # if not evaluate:
-    with open(f"./DDQN/runs/{network}/run_{run}/logs.csv", "a") as f:
+    with open(f"./A2C/runs/{network}/run_{run}/logs.csv", "a") as f:
         print(f"{i_episode},{avg_eps_reward},{round(env.getAvgAccumulatedWaitingTime(), 3)},{round(env.getMaxAccumulatedWaitingTime(), 3)},{eps}", file=f)
 
     if i_episode % 20 == 0 or i_episode == 1:
@@ -365,8 +375,9 @@ while i_episode <= num_episodes:
             step_actions = []
 
             for id in env.agentIDs:
-                action = select_action(models[id], states[id], eps)
+                action, probs = select_action(models[id], states[id], eps)
                 actions[id] = action
+                probs_dict[id] = probs
                 step_actions.append(action.item())
 
             observations, reward, terminated, truncated = env.step(step_actions)
@@ -375,13 +386,16 @@ while i_episode <= num_episodes:
             next_states = {}
             rewards = {}
             
-            for i, id in zip(range(len(observations)), env.agentIDs):
-                next_states[id] = torch.tensor(
-                    observations[i], dtype=torch.float32, device=device).unsqueeze(0)
-                rewards[id] = torch.tensor([reward[i]], device=device)
-                # if not evaluate:
-                # models[id]['memory'].push(states[id], actions[id], next_states[id], rewards[id])
-                eps_reward += rewards[id].item()
+            # for i, id in zip(range(len(observations)), env.agentIDs):
+            #     next_states[id] = torch.tensor(
+            #         observations[i], dtype=torch.float32, device=device).unsqueeze(0)
+            #     rewards[id] = torch.tensor([reward[i]], device=device)
+            #     
+            #     eps_reward += rewards[id].item()
+            #     advantage = reward[id] + (1-done)*GAMMA*models[id]["critic"](next_states[id]) - models[id]["critic"](states[id])
+            #     
+            #     critic_loss = advantage.pow(2).mean()
+            #     models[id]["critic_optimizer"]
 
             # Move to the next state
             states = next_states
@@ -394,7 +408,7 @@ while i_episode <= num_episodes:
         avg_eps_reward = eps_reward/t
         print(f"Evaluation {i_episode} | Reward : {avg_eps_reward} | Acc. waiting time : {round(env.getAvgAccumulatedWaitingTime(), 3)} | Guesses : {guesses} | Epsilon : {eps} | Total timesteps : {t}")
 
-        with open(f"./DDQN/runs/{network}/run_{run}/eval_logs.csv", "a") as f:
+        with open(f"./A2C/runs/{network}/run_{run}/eval_logs.csv", "a") as f:
             print(f"{i_episode},{avg_eps_reward},{round(env.getAvgAccumulatedWaitingTime(), 3)},{round(env.getMaxAccumulatedWaitingTime(), 3)},{eps}", file=f)
 
     # if not evaluate:
@@ -402,17 +416,3 @@ while i_episode <= num_episodes:
     if eps > min_eps:
         eps = eps - (1/num_episodes)
         eps = round(eps, 3)
-
-exist1 = os.path.exists(f"./DDQN/runs/{network}/run_{run}/policy_net")
-if not exist1:
-    os.makedirs(f"./DDQN/runs/{network}/run_{run}/policy_net")
-
-exist2 = os.path.exists(f"./DDQN/runs/{network}/run_{run}/target_net")
-if not exist2:
-    os.makedirs(f"./DDQN/runs/{network}/run_{run}/target_net")
-
-for id in env.agentIDs:
-    policy_net = models[id]["policy_net"]
-    target_net = models[id]["target_net"]
-    torch.save(policy_net.state_dict(), f"./DDQN/runs/{network}/run_{run}/policy_net/agent_{id}")
-    torch.save(target_net.state_dict(), f"./DDQN/runs/{network}/run_{run}/target_net/agent_{id}")
